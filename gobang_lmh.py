@@ -1,5 +1,7 @@
 import pygame as pg
+from pygame.locals import *
 import math
+import time
 WIDTH = 40
 COLUMN = 15
 ROW = 15
@@ -253,71 +255,100 @@ def board():#绘制界面
     i1 = WIDTH/2
 
     while i1 <= WIDTH * (COLUMN + 1):
-        l = pg.draw.line(screen, (0, 0, 0), (i1, WIDTH/2), (i1, WIDTH * (COLUMN + 1/2)), 2)
+        pg.draw.line(screen, (0, 0, 0), (i1, WIDTH/2), (i1, WIDTH * (COLUMN + 1/2)), 2)
         i1 = i1 + WIDTH
     i2 = WIDTH/2
 
     while i2 <= WIDTH * (ROW + 1):
-        l = l = pg.draw.line(screen, (0, 0, 0), (WIDTH/2, i2), (WIDTH * (ROW + 1/2), i2), 2)
+        pg.draw.line(screen, (0, 0, 0), (WIDTH/2, i2), (WIDTH * (ROW + 1/2), i2), 2)
         i2 = i2 + WIDTH
     return screen
 
 
-def main():
+def game_body():
     gobang = board()
+    tip = pg.font.Font(None, 30)
+    tip_mes = tip.render('press K_DOWN to play first, otherwise second', True, (0, 0, 0))
+    gobang.blit(tip_mes, (10, 0, 100, 20))
+    pg.display.flip()
+    ai_turn = None
+    font = pg.font.Font(None, 40)
+    while True:
+        for e in pg.event.get():
+            pg.display.flip()
+            if e.type == pg.KEYDOWN and ai_turn is None:
+                if e.key == pg.K_DOWN:
+                    ai_turn = False
+                else:
+                    ai_turn = True
+                gobang = board()
+            else:
+                if ai_turn is not None:
+                    while True:
+                        if game_over(list_ai):
+                            mes = font.render('AI win, press K_UP to play again, otherwise quit ', True, (0, 0, 0))
+                            gobang.blit(mes, (10, 50, 400, 100))
+                            pg.display.flip()
+                            while True:
+                                for ev in pg.event.get():
+                                    if ev.type == pg.KEYDOWN:
+                                        if ev.key == pg.K_UP:
+                                            return True
+                                        else:
+                                            return False
+                        if game_over(list_hu):
+                            mes = font.render('You win, press up to play again, otherwise quit', True, (0, 0, 0))
+                            gobang.blit(mes, (10, 50, 400, 100))
+                            pg.display.flip()
+                            return
+                        if len(list_sum) != 0 and len(list_sum) == len(list_all):
+                            mes = font.render('Deuce, press up to play again, otherwise quit', True, (0, 0, 0))
+                            gobang.blit(mes, (10, 50, 400, 100))
+                            pg.display.flip()
+                            return
+                        if ai_turn:
+                            if list_sum == []:
+                                col, row = int(COLUMN / 2), int(ROW / 2)
+                            else:
+                                col, row = ai()
+                            if not (col, row) in list_sum:
+                                x = int((col + 1 / 2) * WIDTH)
+                                y = int((row + 1 / 2) * WIDTH)
+                                pg.draw.circle(gobang, (255, 255, 255), (x, y), 15, 0)
+                                pg.display.flip()
+                                ai_turn = False
+                                list_ai.append((col, row))
+                                list_sum.append((col, row))
+                        else:
+                            pg.event.wait()
+                            if pg.mouse.get_pressed()[0] == 1:
+                                x, y = pg.mouse.get_pos()
+                                col = math.floor(x / WIDTH)
+                                row = math.floor(y / WIDTH)
+                                if not (col, row) in list_sum:
+                                    x = int((col + 1 / 2) * WIDTH)
+                                    y = int((row + 1 / 2) * WIDTH)
+                                    pg.draw.circle(gobang, (0, 0, 0), (x, y), 15, 0)
+                                    pg.display.flip()
+                                    ai_turn = True
+                                    list_hu.append((col, row))
+                                    list_sum.append((col, row))
+
+
+def main():
     #初始化list_all
     for i in range(COLUMN+1):
         for j in range(ROW+1):
             list_all.append((i, j))
     while True:
-        for e in pg.event.get():
-            if e.type == pg.QUIT:
-                exit()
-            pg.display.flip()
-            # 默认人先下
-            ai_turn = False
-            while True:
-                if game_over(list_ai):
-                    print('ai win')
-                    break
-                if game_over(list_hu):
-                    print('human win')
-                    break
-
-                if ai_turn:
-                    col, row =ai()
-                    if not (col, row) in list_sum:
-                        x = int((col + 1 / 2) * WIDTH)
-                        y = int((row + 1 / 2) * WIDTH)
-                        pg.draw.circle(gobang, (255, 255, 255), (x, y), 15, 0)
-                        pg.display.flip()
-                        ai_turn = False
-                        list_ai.append((col, row))
-                        list_sum.append((col, row))
-
-
-                else:
-                    pg.event.wait()
-                    if pg.mouse.get_pressed()[0] == 1:
-                        x, y = pg.mouse.get_pos()
-                        col = math.floor(x / WIDTH)
-                        row = math.floor(y / WIDTH)
-                        if not (col, row) in list_sum:
-                            x = int((col + 1 / 2) * WIDTH)
-                            y = int((row + 1 / 2) * WIDTH)
-                            pg.draw.circle(gobang, (0, 0, 0), (x, y), 15, 0)
-                            pg.display.flip()
-                            ai_turn = True
-                            list_hu.append((col, row))
-                            list_sum.append((col, row))
-
-
-
-
-
-
-
-
+        global list_ai
+        list_ai = []
+        global list_hu
+        list_hu = []
+        global list_sum
+        list_sum = []
+        if not game_body():
+            break
 
 
 if __name__ == '__main__':
