@@ -1,38 +1,49 @@
 import pygame as pg
-from pygame.locals import *
 import math
 import time
 WIDTH = 40
 COLUMN = 15
 ROW = 15
+#界面、音频初始化
+pg.init()
+pg.mixer.init()
+pg.mixer.music.load('music/bgm.mp3')
+pg.mixer.music.set_volume(1)
+pg.mixer.music.play()
+interval = pg.mixer.Sound('music/point.wav')
+interval.set_volume(1)
+victory = pg.mixer.Sound('music/victory.wav')
+victory.set_volume(1)
+defeat = pg.mixer.Sound('music/defeat.wav')
+defeat.set_volume(1)
 
 list_ai = []
 list_hu = []
 list_sum = [] #双方下过的
 list_all = [] #整个棋盘的店
 next_step = [0, 0] #ai下一步下的位置
-DEPTH = 2 #每次ai搜索的深度
+DEPTH = 1 #每次ai搜索的深度
 CUT = 0
 SEARCH = 0
 #棋子形状的分数评估模型
 score_shape = [
-    (50, (0, 1, 1, 0, 0)),
-    (50, (0, 0, 1, 1, 0)),
-    (200, (1, 0, 1, 1, 0)),
-    (200, (0, 1, 0, 1, 1)),
-    (200, (1, 1, 0, 1, 0)),
-    (200, (0, 1, 1, 0, 1)),
-    (500, (1, 1, 1, 0, 0)),
-    (500, (0, 0, 1, 1, 1)),
-    (5000, (0, 1, 1, 1, 0)),
-    (5000, (0, 1, 0, 1, 1, 0)),
-    (5000, (0, 1, 1, 0, 1, 0)),
-    (5000, (0, 1, 1, 1, 1)),
-    (5000, (1, 1, 1, 1, 0)),
-    (5000, (1, 0, 1, 1, 1)),
-    (5000, (1, 1, 1, 0, 1)),
-    (5000, (1, 1, 0, 1, 1)),
-    (50000, (0, 1, 1, 1, 1, 0)),
+    (1, (0, 1, 1, 0, 0)),
+    (1, (0, 0, 1, 1, 0)),
+    (100, (1, 0, 1, 1, 0)),
+    (100, (0, 1, 0, 1, 1)),
+    (100, (1, 1, 0, 1, 0)),
+    (100, (0, 1, 1, 0, 1)),
+    (100, (1, 1, 1, 0, 0)),
+    (100, (0, 0, 1, 1, 1)),
+    (10000, (0, 1, 1, 1, 0)),
+    (10000, (0, 1, 0, 1, 1, 0)),
+    (10000, (0, 1, 1, 0, 1, 0)),
+    (10000, (0, 1, 1, 1, 1)),
+    (10000, (1, 1, 1, 1, 0)),
+    (10000, (1, 0, 1, 1, 1)),
+    (10000, (1, 1, 1, 0, 1)),
+    (10000, (1, 1, 0, 1, 1)),
+    (1000000, (0, 1, 1, 1, 1, 0)),
     (100000000, (1, 1, 1, 1, 1))
 ]
 
@@ -41,7 +52,8 @@ def ai():
     global  SEARCH
     CUT = 0
     SEARCH = 0
-    neg_max_search(-100000000, 100000000, True, DEPTH)
+    score = neg_max_search(-9999999999, 9999999999, True, DEPTH)
+    print('本次得分:', score)
     print('剪枝数:', CUT)
     print('搜索数:', SEARCH )
     return next_step[0], next_step[1]
@@ -140,14 +152,14 @@ def evaluate(is_ai):
         enemy_score += calculate(x, y, 1, -1, enemy_list, self_list, enemy_all_score_shape_direct)
 
     #规则待改善
-    total_score = self_score - enemy_score / 2
+    total_score = self_score - enemy_score
     return total_score
 
 
 #计算某个点所在棋子形状的得分值
 def calculate(x, y, direct_x, direct_y, self_list, enemy_list, all_score_shape_direct):
     extra_score = 0
-    maxscore_shape = (0, None)
+    maxscore_shape = (-100, None)
 
     #该点在此方向已经加入了某种形状的计算，不重复计算
     for item in all_score_shape_direct:
@@ -248,7 +260,6 @@ def game_over(list):
     return False
 
 def board():#绘制界面
-    pg.init()
     pg.display.set_caption('五子棋')
     screen = pg.display.set_mode((WIDTH*(COLUMN+1), WIDTH*(ROW+1)))
     screen.fill((249, 214, 91))
@@ -264,7 +275,6 @@ def board():#绘制界面
         i2 = i2 + WIDTH
     return screen
 
-
 def game_body():
     gobang = board()
     tip = pg.font.Font(None, 30)
@@ -273,6 +283,8 @@ def game_body():
     pg.display.flip()
     ai_turn = None
     font = pg.font.Font(None, 40)
+    count = 0
+    last_ai_step = None
     while True:
         for e in pg.event.get():
             pg.display.flip()
@@ -293,6 +305,8 @@ def game_body():
                             mes = font.render('AI win, press K_UP to play again, otherwise quit ', True, (0, 0, 0))
                             gobang.blit(mes, (10, 50, 400, 100))
                             pg.display.flip()
+                            pg.mixer.music.pause()
+                            defeat.play()
                             while True:
                                 for ev in pg.event.get():
                                     if ev.type == pg.KEYDOWN:
@@ -304,38 +318,67 @@ def game_body():
                             mes = font.render('You win, press up to play again, otherwise quit', True, (0, 0, 0))
                             gobang.blit(mes, (10, 50, 400, 100))
                             pg.display.flip()
-                            return
+                            pg.mixer.music.pause()
+                            victory.play()
+                            while True:
+                                for ev in pg.event.get():
+                                    if ev.type == pg.KEYDOWN:
+                                        if ev.key == pg.K_UP:
+                                            return True
+                                        else:
+                                            return False
                         if len(list_sum) != 0 and len(list_sum) == len(list_all):
                             mes = font.render('Deuce, press up to play again, otherwise quit', True, (0, 0, 0))
                             gobang.blit(mes, (10, 50, 400, 100))
                             pg.display.flip()
-                            return
+                            while True:
+                                for ev in pg.event.get():
+                                    if ev.type == pg.KEYDOWN:
+                                        if ev.key == pg.K_UP:
+                                            return True
+                                        else:
+                                            return False
                         if ai_turn:
+                            count += 1
                             start = time.time()
                             if list_sum == []:
                                 col, row = int(COLUMN / 2), int(ROW / 2)
                             else:
                                 col, row = ai()
                             end = time.time()
+                            print('第'+str(count)+'回合：', col, row)
                             print('本次搜索用时' + str(int(end - start)) + 's')
+
                             if not (col, row) in list_sum:
                                 x = int((col + 1 / 2) * WIDTH)
                                 y = int((row + 1 / 2) * WIDTH)
                                 if is_first == True:#AI先下
                                     ai_color = (0, 0, 0)
+                                    fork_color = (255, 255, 255)
                                 else:
                                     ai_color = (255, 255, 255)
+                                    fork_color = (0, 0, 0)
                                 pg.draw.circle(gobang, ai_color, (x, y), 15, 0)
+                                pg.draw.line(gobang, fork_color, (x - 7, y - 7), (x + 7, y + 7), 3)
+                                pg.draw.line(gobang, fork_color, (x + 7, y - 7), (x - 7, y + 7), 3)
+                                if last_ai_step is not None:
+                                    last_x = int((last_ai_step[0] + 1 / 2) * WIDTH)
+                                    last_y = int((last_ai_step[1] + 1 / 2) * WIDTH)
+                                    pg.draw.circle(gobang, ai_color, (last_x, last_y), 15, 0)
+                                last_ai_step = [col, row]
                                 pg.display.flip()
+                                interval.play()
                                 ai_turn = False
                                 list_ai.append((col, row))
                                 list_sum.append((col, row))
+                                print('list_sum:', list_sum, '\n\n')
                         else:
                             pg.event.wait()
                             if pg.mouse.get_pressed()[0] == 1:
                                 x, y = pg.mouse.get_pos()
                                 col = math.floor(x / WIDTH)
                                 row = math.floor(y / WIDTH)
+                                print('人:第', count, '回合:', col, row)
                                 if not (col, row) in list_sum:
                                     x = int((col + 1 / 2) * WIDTH)
                                     y = int((row + 1 / 2) * WIDTH)
@@ -345,6 +388,7 @@ def game_body():
                                         hu_color = (0, 0, 0)
                                     pg.draw.circle(gobang, hu_color, (x, y), 15, 0)
                                     pg.display.flip()
+                                    interval.play()
                                     ai_turn = True
                                     list_hu.append((col, row))
                                     list_sum.append((col, row))
@@ -356,6 +400,16 @@ def main():
         for j in range(ROW+1):
             list_all.append((i, j))
     while True:
+        print('请选择难度：\n简单[1]\n一般[2]\n困难[3](等待时间会很长)\n')
+        try:
+            global DEPTH
+            DEPTH = int(input('请输入难度'))
+            if DEPTH > 3:
+                DEPTH = 3
+            if DEPTH < 0:
+                DEPTH = 1
+        except:
+            print('未正确输入数字,已经按照简单模式进行')
         global list_ai
         list_ai = []
         global list_hu
